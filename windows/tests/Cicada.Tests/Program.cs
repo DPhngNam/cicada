@@ -1716,19 +1716,6 @@ static class Tests
             Check(!Translator.IsPromptEcho(o), $"not the prompt: {o}");
     }
 
-    public static void RoomMicAsksForNoiseSuppressionOnly()
-    {
-        Guid ns = RoomDenoise.Noise, aec = EchoCancel.Effect, agc = RoomDenoise.Gain, eq = new("6f64adc3-8211-11e2-8c70-2c27d7f001fa");
-        // This PC's mic in the communications category: NS and AEC on, both settable.
-        Equal("NS:True AEC:False", string.Join(" ", RoomDenoise.Changes([new(ns, true, false), new(aec, true, true), new(eq, true, true)]).Select(c => $"{(c.Id == ns ? "NS" : "AEC")}:{c.On}")),
-              "NS on, AEC off, nothing else touched");
-        Check(RoomDenoise.Changes([new(ns, true, true), new(aec, true, false), new(agc, false, true)]).Count == 0, "already right, or not settable: nothing asked");
-        Equal((agc, false), RoomDenoise.Changes([new(agc, true, true)]).Single(), "gain control turned off");
-        Check(RoomDenoise.Usable([new(ns, false, true), new(agc, false, true)]), "NS on, AGC stuck on: kept");
-        Check(!RoomDenoise.Usable([new(ns, false, true), new(aec, false, true)]), "AEC stuck on: plain");        Check(!RoomDenoise.Usable([new(aec, true, false)]), "no NS listed: plain");
-        Check(!RoomDenoise.Usable(null), "no effects list (Windows 10): plain");
-    }
-
     public static void EchoIsDroppedOnlyFromThePlainMic()
     {
         Check(SpeakEngine.EchoDrop(false, 0.51), "plain mic, meeting over half the press: dropped");

@@ -77,6 +77,4 @@ vm/vmctl.sh g shot C:\x.png    # Windows 里截图（屏幕共享看到的，不
 
 VM 里没有麦克风：`cicadactl fakemic <wav>` 让按住说话键时用这个文件代替麦克风（`talkkey <名字>` 换键，`talkkey choose` 等同点“更改”），`speak <wav>` 直接说一句。`record <秒> <wav>` 录下 CABLE Output（会议软件会听到的声音），拷回 Mac 用 `cicada-cli hear` 核对语言和内容。`spike/clips/me-zh.wav`、`me-en.wav` 是“我说的话”，`silence.wav` 用来测什么都不发。
 
-会议室的麦克风也用通话类别打开，只开驱动的降噪，关掉回声消除和自动增益（`RoomDenoise`）；日志 `room mic: effects [NS on, AEC off…] -> noise suppression`。驱动没有降噪、或回声消除关不掉时照旧用普通流（`-> plain`）。`roomdenoise off` 从下一场会议起关掉它，用来对比。Intel Smart Sound 的降噪和回声消除绑在一起、都关不掉，实测开着时 1 米外读的 10 句一句没听到，所以这种麦克风照旧用普通流。
-
 按住说话键时麦克风用通话类别打开（`EchoMic`），走这台电脑的回声消除：日志 `speak: mic with echo cancellation` 时电脑放着会议声音也照发，`speak: mic plain` 时（Windows 10、驱动没有回声消除）对方说话期间按的照旧不发。`talkmic CABLE Output` 让按住说话键读这个输入（VM 只有它），和 `fakemic` 一起用时仍发文件里的话，但真的走一遍这条采集；虚拟线没有回声消除，所以 VM 里只能看到 plain 这条路。真正的回声消除要真机加扬声器测。

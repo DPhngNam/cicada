@@ -134,7 +134,7 @@ public sealed class Translator(LingClient ling, HttpMessageHandler? google = nul
     /// that nobody says on its own: "So.", "Just.", "You.", "Click. Click." (issue #41). Only a
     /// reply made of nothing else goes; "So good.", "Just a second." and "Thank you." stay, and so
     /// do real short answers ("Yes.", "No.", "Okay."). Windows only so far: not yet in the ports.
-    static readonly HashSet<string> Stray = ["so", "just", "you", "the", "and", "but", "click", "clicks", "clicking", "tap", "knock"];
+    static readonly HashSet<string> Stray = ["so", "just", "you", "the", "and", "but", "click"];
 
     /// Made of fillers only, a held sound shortened first: "嗯嗯嗯", "hmmmm"; "えーと" is not.
     static bool IsFillerWord(string raw)
@@ -179,20 +179,13 @@ public sealed class Translator(LingClient ling, HttpMessageHandler? google = nul
         "reply in exactly three lines", "code of the spoken language", "exactly what was said in the spoken language",
         "translation its translation into",
     ];
+    static readonly System.Text.RegularExpressions.Regex NotLetters = new(@"[^\p{L}]+");
 
     public static bool IsPromptEcho(string original)
     {
-        var s = new System.Text.StringBuilder();
-        foreach (var c in original.ToLowerInvariant())
-            if (char.IsLetter(c)) s.Append(c);
-            else if (s.Length > 0 && s[^1] != ' ') s.Append(' ');
-        var text = s.ToString().Trim();
-        if (text.Length == 0) return false;
-        var covered = new bool[text.Length];
-        foreach (var piece in PromptPieces)
-            for (int i = text.IndexOf(piece, StringComparison.Ordinal); i >= 0; i = text.IndexOf(piece, i + 1, StringComparison.Ordinal))
-                Array.Fill(covered, true, i, piece.Length);
-        return covered.Count(c => c) * 10 >= text.Length * 6;
+        var text = NotLetters.Replace(original.ToLowerInvariant(), " ").Trim();
+        // The pieces don't overlap, so their lengths add up to how much of the line they cover.
+        return text.Length > 0 && PromptPieces.Where(text.Contains).Sum(p => p.Length) * 10 >= text.Length * 6;
     }
 
     /// Tested wording: adding "NONE if there is no speech" or "the same text if already in it"

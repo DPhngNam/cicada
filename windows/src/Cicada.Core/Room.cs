@@ -26,36 +26,6 @@ public static class RoomMicPlan
     }
 }
 
-/// 会议室's noise suppression: the room mic opened in the communications category, so the driver's
-/// noise suppression runs (Ming made up "So.", "Click." from key clicks on the plain stream, issue
-/// #41), with its echo cancellation and gain control turned off. The Mac measured the system's
-/// echo cancellation on a room mic losing most of the table's lines (RoomMic.swift › EchoGate), and
-/// gain control lifts the room's noise with the voice. A stream that can't be had that way (no
-/// noise suppression listed, or an echo canceller that stays on) is opened plain, as before.
-public static class RoomDenoise
-{
-    public static readonly Guid Noise = new("6f64adbf-8211-11e2-8c70-2c27d7f001fa");
-    public static readonly Guid Gain = new("6f64adc0-8211-11e2-8c70-2c27d7f001fa");
-    /// `cicadactl roomdenoise off`, to compare the two on the same room.
-    public static volatile bool Enabled = true;
-
-    /// The states to ask for: noise suppression on, echo cancellation and gain control off, each
-    /// only where the stream lists it in the other state and lets the app set it.
-    public static List<(Guid Id, bool On)> Changes(IReadOnlyList<EchoCancel.AudioEffect> effects)
-    {
-        var want = new (Guid Id, bool On)[] { (Noise, true), (EchoCancel.Effect, false), (Gain, false) };
-        return [.. want.Where(w => effects.Any(e => e.Id == w.Id && e.On != w.On && e.CanSetState))];
-    }
-
-    /// Worth keeping: noise suppression on and no echo cancellation. Gain control left on is
-    /// tolerated (logged): it is the driver's, and noise suppression still runs before it. Intel
-    /// Smart Sound lists NS and AEC both on and neither settable; kept anyway (2026-11-25, laptop
-    /// mic, headphones, 10 lines read from 1 m after a minute of typing), it heard 0 of the 10 and
-    /// still made up 2 lines from the typing, against 3 heard and 1 made up on the plain stream.
-    public static bool Usable(IReadOnlyList<EchoCancel.AudioEffect>? effects) =>
-        effects is not null && effects.Any(e => e.Id == Noise && e.On) && !effects.Any(e => e.Id == EchoCancel.Effect && e.On);
-}
-
 /// When a frame counts as speech. The computer's own audio is digital silence between words, so a
 /// fixed -40 dBFS works there. A room mic always hears the room (a fan, the street), and a voice
 /// across the table can be quieter than that: there the line sits at twice the room's own noise,
