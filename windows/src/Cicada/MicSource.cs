@@ -64,12 +64,8 @@ sealed class MicSource : IAudioSource
         IAudioClient? client = null;
         try
         {
-            client = Endpoints.Activate(id);
-            var fmt = Endpoints.Pcm16(16000);
-            // A 1 s buffer, as the system tap's: a capture thread held up a moment loses nothing.
-            int hr = client.Initialize(0, Endpoints.AutoConvert, 10_000_000, 0, fmt, IntPtr.Zero);
-            Marshal.FreeHGlobal(fmt);
-            Marshal.ThrowExceptionForHR(hr);
+            client = RoomDenoise.Enabled ? Denoised(id) : null;
+            client ??= Open(id, communications: false);
             var iid = typeof(IAudioCaptureClient).GUID;
             Marshal.ThrowExceptionForHR(client.GetService(ref iid, out var s));
             var cap = (IAudioCaptureClient)s;
@@ -92,5 +88,41 @@ sealed class MicSource : IAudioSource
             client.Stop();
         }
         finally { if (client is not null) Marshal.ReleaseComObject(client); }
+    }
+
+    static IAudioClient Open(string id, bool communications)
+    {
+        var client = Endpoints.Activate(id);
+        try
+        {
+            if (communications) EchoMic.Communications(client);
+            var fmt = Endpoints.Pcm16(16000);
+            // A 1 s buffer, as the system tap's: a capture thread held up a moment loses nothing.
+            int hr = client.Initialize(0, Endpoints.AutoConvert, 10_000_000, 0, fmt, IntPtr.Zero);
+            Marshal.FreeHGlobal(fmt);
+            Marshal.ThrowExceptionForHR(hr);
+            return client;
+        }
+        catch { Marshal.ReleaseComObject(client); throw; }
+    }
+
+    /// The room mic with the driver's noise suppression (RoomDenoise), or null to open it plain. A
+    /// denied microphone or an unplugged one still throws, for Run to handle as before.
+    static IAudioClient? Denoised(string id)
+    {
+        IAudioClient client;
+        try { client = Open(id, communications: true); }
+        catch (Exception e) when (e.HResult != unchecked((int)0x80070005))
+        {
+            Log.Debug($"room mic: communications stream failed 0x{e.HResult:X8}, plain");
+            return null;
+        }
+        var notes = new List<string>();
+        var effects = EchoMic.Denoise(client, notes);
+        var keep = RoomDenoise.Usable(effects);
+        Log.Debug($"room mic: {EchoMic.Describe(effects)}{(notes.Count > 0 ? ", " + string.Join(", ", notes) : "")} -> {(keep ? "noise suppression" : "plain")}");
+        if (keep) return client;
+        Marshal.ReleaseComObject(client);
+        return null;
     }
 }

@@ -119,6 +119,32 @@ sealed class EchoMic
         return list;
     }
 
+    /// Before Initialize: the endpoint's communications processing for this stream.
+    internal static void Communications(IAudioClient client)
+    {
+        var props = new AudioClientProperties { cbSize = 16, bIsOffload = 0, eCategory = 3 /* AudioCategory_Communications */, Options = 0 };
+        Marshal.ThrowExceptionForHR(((IAudioClient2)client).SetClientProperties(ref props));
+    }
+
+    /// After Initialize: the room mic's effects set as RoomDenoise asks, then listed again; null
+    /// when Windows can't list them (before 22000).
+    internal static List<EchoCancel.AudioEffect>? Denoise(IAudioClient client, List<string> notes)
+    {
+        var iid = typeof(IAudioEffectsManager).GUID;
+        if (client.GetService(ref iid, out var o) != 0 || o is not IAudioEffectsManager manager) return null;
+        var list = Read(manager);
+        if (list is null) return null;
+        foreach (var (id, on) in RoomDenoise.Changes(list))
+        {
+            var hr = manager.SetAudioEffectState(id, on ? 1 : 0);
+            if (hr != 0) notes.Add($"{Name(new(id, true, on))} failed 0x{hr:X8}");
+        }
+        return Read(manager);
+    }
+
+    internal static string Describe(IReadOnlyList<EchoCancel.AudioEffect>? effects) =>
+        effects is null ? "no effects list" : $"effects [{string.Join(", ", effects.Select(Name))}]";
+
     static List<EchoCancel.AudioEffect>? Read(IAudioEffectsManager manager)
     {
         if (manager.GetAudioEffects(out var p, out var n) != 0) return null;
@@ -137,7 +163,7 @@ sealed class EchoMic
     }
 
     static string Name(EchoCancel.AudioEffect e) =>
-        (e.Id == EchoCancel.Effect ? "AEC" : e.Id.ToString()[..8]) + (e.On ? " on" : " off");
+        (e.Id == EchoCancel.Effect ? "AEC" : e.Id == RoomDenoise.Noise ? "NS" : e.Id == RoomDenoise.Gain ? "AGC" : e.Id.ToString()[..8]) + (e.On ? " on" : " off");
 
     // MARK: COM (audioclient.h, Windows SDK 10.0.22621). Nested so they can't meet other declarations.
 

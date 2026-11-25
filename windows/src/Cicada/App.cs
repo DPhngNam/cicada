@@ -1650,6 +1650,8 @@ static class DebugServer
                 return new JsonObject { ["onCable"] = Endpoints.SpeakerIsCable(), ["speaker"] = Endpoints.Default(Endpoints.Flow.Render)?.Name, ["notified"] = app.Settings.CableSpeakerNotified,
                     ["defaults"] = string.Join(" ", Endpoints.Defaults().OrderBy(d => d.Key).Select(d => $"{d.Key}={(Endpoints.CableIds().Contains(d.Value) ? "cable" : "real")}")) };
             case "fakemic": app.SetFakeMic(arg == "off" ? null : arg); break;
+            // roomdenoise on|off: the room mic with the driver's noise suppression, from the next meeting (or mic change).
+            case "roomdenoise": RoomDenoise.Enabled = arg != "off"; break;
             // talkmic <name>: the talk key reads this input (with fakemic the WAV is still what is sent).
             case "talkmic": app.SetTalkMic(arg is "" or "off" ? null : arg); break;
             case "record": _ = app.RecordCable(arg); break;
